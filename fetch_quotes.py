@@ -47,11 +47,16 @@ def main():
         q, t = quotes.get(s, {}), trades.get(s, {})
         bid, ask, last = q.get("bp"), q.get("ap"), t.get("p")
         mid = round((bid + ask) / 2, 4) if bid and ask and bid > 0 and ask > 0 else None
+        spread_pct = round((ask - bid) / mid * 100, 3) if mid else None
+        wide = spread_pct is not None and spread_pct > 0.5  # thin/after-hours book
+        # Prefer the last trade: it's the price that actually printed. Mid is a
+        # fallback only, and is untrustworthy when the spread is wide.
+        price = last if last else mid
         found = bool(q or t)
         if not found:
             missing.append(s)
-        out[s] = {"price": mid if mid is not None else last, "mid": mid,
-                  "bid": bid, "ask": ask, "last": last,
+        out[s] = {"price": price, "last": last, "mid": mid, "bid": bid, "ask": ask,
+                  "spread_pct": spread_pct, "wide_spread": wide,
                   "quote_time": q.get("t"), "trade_time": t.get("t"), "found": found}
     result = {"as_of": datetime.now(timezone.utc).isoformat(timespec="seconds"),
               "feed": "iex", "count": len(syms), "missing": missing, "quotes": out}
